@@ -31,7 +31,6 @@ class MultivariateGaussianMDN(nn.Module):
         hidden_net,
         num_components,
         custom_initialization=False,
-        device='cpu'
     ):
         """
         Parameters
@@ -56,7 +55,6 @@ class MultivariateGaussianMDN(nn.Module):
         self._hidden_features = hidden_features
         self._num_components = num_components
         self._num_upper_params = (features * (features - 1)) // 2
-        self._device = device
 
         self._row_ix, self._column_ix = np.triu_indices(features, k=1)
         self._diag_ix = range(features)
@@ -123,7 +121,11 @@ class MultivariateGaussianMDN(nn.Module):
         precision_factors = torch.zeros(
             means.shape[0], self._num_components, self._features, self._features
         )
-        precision_factors = precision_factors.to(self._device)
+        cuda_check = context.is_cuda
+        if cuda_check:
+            get_cuda_device = context.get_device()
+            precision_factors = precision_factors.to(get_cuda_device)
+
         precision_factors[..., self._diag_ix, self._diag_ix] = diagonal
         if self._num_upper_params > 0:
             precision_factors[..., self._row_ix, self._column_ix] = upper
