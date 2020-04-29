@@ -215,19 +215,21 @@ class MultivariateGaussianMDN(nn.Module):
         chosen_precision_factors = precision_factors[ix, choices, :, :]
 
         # Batch triangular solve to multiply standard normal samples by inverse
-        # of upper triangular precision factor.
-        zero_mean_samples, _ = torch.triangular_solve(
-            torch.randn(
-                batch_size * num_samples, output_dim, 1
-            ),  # Need dummy final dimension.
-            chosen_precision_factors,
-        )
+        # of upper triangular precision factor.     
+        arg_A = torch.randn(batch_size * num_samples, output_dim, 1)
+        cuda_check = context.is_cuda
+        if cuda_check:
+            get_cuda_device = context.get_device()
+            arg_A = arg_A.to(get_cuda_device)         
+        arg_B = chosen_precision_factors
+        zero_mean_samples, _ = torch.triangular_solve(arg_A,arg_B)
 
         # Mow center samples at chosen means, removing dummy final dimension
         # from triangular solve.
         samples = chosen_means + zero_mean_samples.squeeze(-1)
+        samples = samples.reshape(batch_size, num_samples, output_dim)
 
-        return samples.reshape(batch_size, num_samples, output_dim)
+        return samples
 
     def _initialize(self):
         """
